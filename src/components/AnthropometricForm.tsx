@@ -18,19 +18,19 @@ const AnthropometricForm: React.FC<AnthropometricFormProps> = ({ onNext, onPrev 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
 
-    // Age validation (0-24 months)
-    if (!anthropometricData.ageMonths || anthropometricData.ageMonths < 0 || anthropometricData.ageMonths > 24) {
-      newErrors.ageMonths = 'Age must be between 0 and 24 months';
+    // Age validation (0-144 months)
+    if (!anthropometricData.ageMonths || anthropometricData.ageMonths < 0 || anthropometricData.ageMonths > 144) {
+      newErrors.ageMonths = 'Age must be between 0 and 144 months';
     }
 
-    // Height validation (30-100 cm)
-    if (!anthropometricData.heightCm || anthropometricData.heightCm < 30 || anthropometricData.heightCm > 100) {
-      newErrors.heightCm = 'Height must be between 30 and 100 cm';
+    // Height validation (above 0)
+    if (!anthropometricData.heightCm || anthropometricData.heightCm <= 0) {
+      newErrors.heightCm = 'Height must be above 0 cm';
     }
 
-    // Weight validation (1-20 kg)
-    if (!anthropometricData.weightKg || anthropometricData.weightKg < 1 || anthropometricData.weightKg > 20) {
-      newErrors.weightKg = 'Weight must be between 1 and 20 kg';
+    // Weight validation (above 0)
+    if (!anthropometricData.weightKg || anthropometricData.weightKg <= 0) {
+      newErrors.weightKg = 'Weight must be above 0 kg';
     }
 
     setErrors(newErrors);
@@ -53,7 +53,31 @@ const AnthropometricForm: React.FC<AnthropometricFormProps> = ({ onNext, onPrev 
     }
   };
 
-  const ageOptions = Array.from({ length: 25 }, (_, i) => i); // 0-24 months
+  const generateAgeOptions = () => {
+    const options = [];
+    for (let i = 0; i <= 144; i++) {
+      let label = `${i} ${i === 1 ? 'month' : 'months'}`;
+      
+      // Add year brackets for 12 months and above
+      if (i >= 12) {
+        const years = Math.floor(i / 12);
+        const remainingMonths = i % 12;
+        
+        if (remainingMonths === 0) {
+          // Exact year
+          label += ` (${years} ${years === 1 ? 'year' : 'years'})`;
+        } else {
+          // Year and months
+          label += ` (${years} ${years === 1 ? 'year' : 'years'} ${remainingMonths} ${remainingMonths === 1 ? 'month' : 'months'})`;
+        }
+      }
+      
+      options.push({ value: i, label });
+    }
+    return options;
+  };
+
+  const ageOptions = generateAgeOptions();
 
   return (
     <div className="space-y-6">
@@ -81,8 +105,8 @@ const AnthropometricForm: React.FC<AnthropometricFormProps> = ({ onNext, onPrev 
             </SelectTrigger>
             <SelectContent className="bg-white border border-gray-200 shadow-lg z-50">
               {ageOptions.map((age) => (
-                <SelectItem key={age} value={age.toString()}>
-                  {age} {age === 1 ? 'month' : 'months'}
+                <SelectItem key={age.value} value={age.value.toString()}>
+                  {age.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -111,7 +135,7 @@ const AnthropometricForm: React.FC<AnthropometricFormProps> = ({ onNext, onPrev 
               cm
             </span>
           </div>
-          <p className="text-xs text-gray-500">Range: 30-100 cm</p>
+          <p className="text-xs text-gray-500">Must be above 0 cm</p>
           {errors.heightCm && (
             <p className="text-red-500 text-xs">{errors.heightCm}</p>
           )}
@@ -136,7 +160,7 @@ const AnthropometricForm: React.FC<AnthropometricFormProps> = ({ onNext, onPrev 
               kg
             </span>
           </div>
-          <p className="text-xs text-gray-500">Range: 1-20 kg</p>
+          <p className="text-xs text-gray-500">Must be above 0 kg</p>
           {errors.weightKg && (
             <p className="text-red-500 text-xs">{errors.weightKg}</p>
           )}
