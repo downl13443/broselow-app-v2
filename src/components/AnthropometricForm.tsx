@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDataCollection } from '@/contexts/DataCollectionContext';
+import { useSubmitData } from '@/hooks/useSubmitData';
 
 interface AnthropometricFormProps {
   onNext: () => void;
@@ -14,6 +15,7 @@ interface AnthropometricFormProps {
 const AnthropometricForm: React.FC<AnthropometricFormProps> = ({ onNext, onPrev }) => {
   const { anthropometricData, setAnthropometricData } = useDataCollection();
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const { submitData, isSubmitting, error, clearError } = useSubmitData();
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -37,12 +39,97 @@ const AnthropometricForm: React.FC<AnthropometricFormProps> = ({ onNext, onPrev 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (validateForm()) {
-      onNext();
+const handleSubmit = async () => {
+  // First validate the form
+  if (!validateForm()) {
+    console.warn('Form validation failed:', errors);
+    setErrors(prev => ({ ...prev, submit: 'Please fix the errors before submitting' }));
+    return; // Don't proceed if validation fails
+  }
+
+  // Clear any previous submission errors
+  clearError();
+
+  try {
+    // Get images from context (should be available from previous step)
+    const { images } = useDataCollection();
+    
+    // Check if all required images are available
+    if (!images.front || !images.left || !images.right) {
+      setErrors({
+        submit: 'All three images (front, left, right) are required before submitting'
+      });
+      return;
     }
-  };
+
+    // Submit the data using our hook
+    const result = await submitData({
+      images: {
+        front: images.front,
+        left: images.left,
+        right: images.right
+      },
+      metadata: {
+        age: anthropometricData.ageMonths,
+        height: anthropometricData.heightCm,
+        weight: anthropometricData.weightKg
+      }
+    });
+
+    if (result.success) {
+      // Success! Move to next step (preview/success screen)
+      console.log('✅ Data submitted successfully:', result);
+      onNext(); // This will take them to the success screen
+    } else {
+      // Handle submission error
+      setErrors({
+        submit: result.error || 'Submission failed. Please try again.'
+      });
+    }
+
+  } catch (err) {
+    // Handle unexpected errors
+    console.error('Unexpected submission error:', err);
+    setErrors({
+      submit: 'An unexpected error occurred. Please try again.'
+    });
+  }
+};
+
+// Update your form JSX to show submission errors (add this before your buttons)
+{errors.submit && (
+  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+    <p className="text-sm text-red-700">{errors.submit}</p>
+  </div>
+)}
+
+{error && (
+  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+    <p className="text-sm text-red-700">API Error: {error}</p>
+    <button
+      onClick={clearError}
+      className="text-xs text-red-600 hover:text-red-800 underline mt-1"
+    >
+      Dismiss
+    </button>
+  </div>
+)}
+
+// Update your submit button to use the new handleSubmit and show loading state
+<Button
+  onClick={handleSubmit}
+  disabled={isSubmitting}
+  className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+>
+  {isSubmitting ? (
+    <div className="flex items-center">
+      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+      Submitting...
+    </div>
+  ) : (
+    'Submit & Continue'
+  )}
+</Button>
 
   const handleInputChange = (field: keyof typeof anthropometricData) => (value: string) => {
     const numValue = parseFloat(value) || 0;
