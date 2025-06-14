@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Check, Download } from 'lucide-react';
 import { useDataCollection } from '@/contexts/DataCollectionContext';
+import { submitInfantData } from '@/services/infantDataService';
+import { useToast } from '@/hooks/use-toast';
 
 interface PreviewSubmitStepProps {
   onPrev: () => void;
@@ -11,29 +13,60 @@ interface PreviewSubmitStepProps {
 
 const PreviewSubmitStep: React.FC<PreviewSubmitStepProps> = ({ onPrev, onRestart }) => {
   const { images, anthropometricData, resetData } = useDataCollection();
+  const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedId, setSubmittedId] = useState<string>('');
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
     
-    // Stub implementation - to be wired up later
-    console.log('Submitting data:', {
-      images,
-      anthropometricData,
-      timestamp: new Date().toISOString(),
-    });
+    try {
+      console.log('Starting submission with data:', {
+        images: Object.keys(images),
+        anthropometricData
+      });
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+      // Validate that all images are present
+      if (!images.front || !images.left || !images.right) {
+        throw new Error('All three images are required');
+      }
+
+      // Submit data to the API
+      const result = await submitInfantData({
+        images: {
+          front: images.front,
+          left: images.left,
+          right: images.right
+        },
+        anthropometricData
+      });
+
+      console.log('Submission successful:', result);
+      setSubmittedId(result.id);
+      setIsSubmitted(true);
+      
+      toast({
+        title: "Success!",
+        description: "Infant data has been submitted successfully.",
+      });
+
+    } catch (error) {
+      console.error('Submission failed:', error);
+      toast({
+        title: "Submission Failed",
+        description: error instanceof Error ? error.message : "Failed to submit data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleNewEntry = () => {
     resetData();
     setIsSubmitted(false);
+    setSubmittedId('');
     onRestart();
   };
 
@@ -48,9 +81,14 @@ const PreviewSubmitStep: React.FC<PreviewSubmitStepProps> = ({ onPrev, onRestart
           <h2 className="text-2xl font-semibold text-green-800 mb-2">
             Record Submitted Successfully
           </h2>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-2">
             The infant data has been collected and submitted for AI training.
           </p>
+          {submittedId && (
+            <p className="text-sm text-gray-500">
+              Record ID: {submittedId}
+            </p>
+          )}
         </div>
 
         <Button
